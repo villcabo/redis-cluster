@@ -2,6 +2,20 @@ networks:
   redis-net:
     external: true
 
+configs:
+  redis-7001-conf:
+    file: ./conf/redis-7001.conf
+  redis-7002-conf:
+    file: ./conf/redis-7002.conf
+  redis-7003-conf:
+    file: ./conf/redis-7003.conf
+  redis-7004-conf:
+    file: ./conf/redis-7004.conf
+  redis-7005-conf:
+    file: ./conf/redis-7005.conf
+  redis-7006-conf:
+    file: ./conf/redis-7006.conf
+
 x-redis-common: &redis_common
   image: redis:7.4.7-alpine
   command: redis-server /etc/redis.conf
@@ -33,7 +47,10 @@ services:
       - "0.0.0.0:17001:17001"
     volumes:
       - "/opt/redis/data/node1:/data"
-      - "./conf/redis-7001.conf:/etc/redis.conf:ro"
+    configs:
+      - source: redis-7001-conf
+        target: /etc/redis.conf
+        mode: 0444
     deploy:
       <<: *deploy_common
       placement:
@@ -48,7 +65,10 @@ services:
       - "0.0.0.0:17002:17002"
     volumes:
       - "/opt/redis/data/node2:/data"
-      - "./conf/redis-7002.conf:/etc/redis.conf:ro"
+    configs:
+      - source: redis-7002-conf
+        target: /etc/redis.conf
+        mode: 0444
     deploy:
       <<: *deploy_common
       placement:
@@ -63,7 +83,10 @@ services:
       - "0.0.0.0:17003:17003"
     volumes:
       - "/opt/redis/data/node3:/data"
-      - "./conf/redis-7003.conf:/etc/redis.conf:ro"
+    configs:
+      - source: redis-7003-conf
+        target: /etc/redis.conf
+        mode: 0444
     deploy:
       <<: *deploy_common
       placement:
@@ -78,7 +101,10 @@ services:
       - "0.0.0.0:17004:17004"
     volumes:
       - "/opt/redis/data/node4:/data"
-      - "./conf/redis-7004.conf:/etc/redis.conf:ro"
+    configs:
+      - source: redis-7004-conf
+        target: /etc/redis.conf
+        mode: 0444
     deploy:
       <<: *deploy_common
       placement:
@@ -93,7 +119,10 @@ services:
       - "0.0.0.0:17005:17005"
     volumes:
       - "/opt/redis/data/node5:/data"
-      - "./conf/redis-7005.conf:/etc/redis.conf:ro"
+    configs:
+      - source: redis-7005-conf
+        target: /etc/redis.conf
+        mode: 0444
     deploy:
       <<: *deploy_common
       placement:
@@ -108,7 +137,10 @@ services:
       - "0.0.0.0:17006:17006"
     volumes:
       - "/opt/redis/data/node6:/data"
-      - "./conf/redis-7006.conf:/etc/redis.conf:ro"
+    configs:
+      - source: redis-7006-conf
+        target: /etc/redis.conf
+        mode: 0444
     deploy:
       <<: *deploy_common
       placement:
