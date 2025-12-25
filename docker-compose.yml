@@ -49,9 +49,6 @@ services:
       - "0.0.0.0:4180:4180"  # Public access through proxy
     deploy:
       replicas: 1
-      placement:
-        constraints:
-          - node.labels.role == b1
     depends_on:
       - redis-insight
 
@@ -70,6 +67,3 @@ services:
     # NO EXPOSE PORT DIRECTLY - Access only through OAuth2 Proxy
     deploy:
       replicas: 1
-      placement:
-        constraints:
-          - node.labels.role == b1
