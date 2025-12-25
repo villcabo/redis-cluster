@@ -5,8 +5,57 @@ networks:
 volumes:
   redis-insight-data:
 
-# RedisInsight - Redis Admin Interface (Official Redis GUI)
+# RedisInsight with OAuth2 Proxy + Keycloak RBAC
 services:
+  # OAuth2 Proxy - Keycloak Authentication with Role Control
+  redis-auth-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    hostname: redis-auth-proxy
+    networks:
+      - redis-net
+    environment:
+      # Keycloak OIDC Configuration
+      OAUTH2_PROXY_PROVIDER: keycloak-oidc
+      OAUTH2_PROXY_CLIENT_ID: redis-insight-client
+      OAUTH2_PROXY_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      OAUTH2_PROXY_OIDC_ISSUER_URL: ${KEYCLOAK_ISSUER_URL}
+
+      # Upstream Configuration
+      OAUTH2_PROXY_UPSTREAM: http://redis-insight:5540
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
+
+      # Security Configuration
+      OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_COOKIE_SECRET}
+      OAUTH2_PROXY_COOKIE_SECURE: "true"
+      OAUTH2_PROXY_COOKIE_HTTPONLY: "true"
+      OAUTH2_PROXY_COOKIE_SAMESITE: lax
+
+      # Role-Based Access Control
+      OAUTH2_PROXY_OIDC_GROUPS_CLAIM: realm_roles
+      OAUTH2_PROXY_ALLOWED_GROUPS: REDIS_CLIENT_ADMIN
+      OAUTH2_PROXY_SKIP_OIDC_DISCOVERY: "false"
+
+      # Session Configuration
+      OAUTH2_PROXY_SESSION_STORE_TYPE: cookie
+      OAUTH2_PROXY_COOKIE_EXPIRE: 24h
+      OAUTH2_PROXY_COOKIE_REFRESH: 1h
+
+      # Logging
+      OAUTH2_PROXY_LOG_LEVEL: info
+      OAUTH2_PROXY_STANDARD_LOGGING: "true"
+      OAUTH2_PROXY_AUTH_LOGGING: "true"
+      OAUTH2_PROXY_REQUEST_LOGGING: "true"
+    ports:
+      - "0.0.0.0:4180:4180"  # Public access through proxy
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.role == b1
+    depends_on:
+      - redis-insight
+
+  # RedisInsight - Redis Admin Interface (Protected by OAuth2 Proxy)
   redis-insight:
     image: redis/redisinsight:2.70
     hostname: redis-insight
@@ -14,10 +63,11 @@ services:
       - redis-net
     environment:
       RI_LOG_LEVEL: info
+      # Disable Redis Insight authentication since OAuth2 Proxy handles it
+      RI_APP_TYPE: docker
     volumes:
       - "redis-insight-data:/data"
-    ports:
-      - "0.0.0.0:5540:5540"
+    # NO EXPOSE PORT DIRECTLY - Access only through OAuth2 Proxy
     deploy:
       replicas: 1
       placement:
