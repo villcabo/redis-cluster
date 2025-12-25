@@ -30,6 +30,9 @@ services:
       OAUTH2_PROXY_COOKIE_HTTPONLY: "true"
       OAUTH2_PROXY_COOKIE_SAMESITE: lax
 
+      # Email Validation Configuration
+      OAUTH2_PROXY_EMAIL_DOMAINS: "*"  # Allow all email domains, or specify your domain like "yourcompany.com"
+
       # Role-Based Access Control
       OAUTH2_PROXY_OIDC_GROUPS_CLAIM: realm_roles
       OAUTH2_PROXY_ALLOWED_GROUPS: REDIS_CLIENT_ADMIN
