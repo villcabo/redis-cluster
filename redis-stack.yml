@@ -1,0 +1,113 @@
+networks:
+  redis-net:
+    external: true
+
+x-redis-common: &redis_common
+  image: redis:7.4.7-alpine
+  command: redis-server /etc/redis.conf
+  networks:
+    - redis-net
+  deploy:
+    replicas: 1
+    resources:
+      limits:
+        memory: 2G
+      reservations:
+        memory: 512M
+  healthcheck:
+    test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+    interval: 30s
+    timeout: 3s
+    retries: 3
+    start_period: 30s
+
+services:
+  redis1:
+    <<: *redis_common
+    hostname: redisserver1
+    ports:
+      - "0.0.0.0:7001:7001"
+      - "0.0.0.0:17001:17001"
+    volumes:
+      - "/opt/redis/data/node1:/data"
+      - "./conf/redis-7001.conf:/etc/redis.conf:ro"
+    deploy:
+      <<: *redis_common
+      placement:
+        constraints:
+          - node.labels.role == b1
+
+  redis2:
+    <<: *redis_common
+    hostname: redisserver2
+    ports:
+      - "0.0.0.0:7002:7002"
+      - "0.0.0.0:17002:17002"
+    volumes:
+      - "/opt/redis/data/node2:/data"
+      - "./conf/redis-7002.conf:/etc/redis.conf:ro"
+    deploy:
+      <<: *redis_common
+      placement:
+        constraints:
+          - node.labels.role == b2
+
+  redis3:
+    <<: *redis_common
+    hostname: redisserver3
+    ports:
+      - "0.0.0.0:7003:7003"
+      - "0.0.0.0:17003:17003"
+    volumes:
+      - "/opt/redis/data/node3:/data"
+      - "./conf/redis-7003.conf:/etc/redis.conf:ro"
+    deploy:
+      <<: *redis_common
+      placement:
+        constraints:
+          - node.labels.role == b3
+
+  redis4:
+    <<: *redis_common
+    hostname: redisserver4
+    ports:
+      - "0.0.0.0:7004:7004"
+      - "0.0.0.0:17004:17004"
+    volumes:
+      - "/opt/redis/data/node4:/data"
+      - "./conf/redis-7004.conf:/etc/redis.conf:ro"
+    deploy:
+      <<: *redis_common
+      placement:
+        constraints:
+          - node.labels.role == b1
+
+  redis5:
+    <<: *redis_common
+    hostname: redisserver5
+    ports:
+      - "0.0.0.0:7005:7005"
+      - "0.0.0.0:17005:17005"
+    volumes:
+      - "/opt/redis/data/node5:/data"
+      - "./conf/redis-7005.conf:/etc/redis.conf:ro"
+    deploy:
+      <<: *redis_common
+      placement:
+        constraints:
+          - node.labels.role == b2
+
+  redis6:
+    <<: *redis_common
+    hostname: redisserver6
+    ports:
+      - "0.0.0.0:7006:7006"
+      - "0.0.0.0:17006:17006"
+    volumes:
+      - "/opt/redis/data/node6:/data"
+      - "./conf/redis-7006.conf:/etc/redis.conf:ro"
+    deploy:
+      <<: *redis_common
+      placement:
+        constraints:
+          - node.labels.role == b3

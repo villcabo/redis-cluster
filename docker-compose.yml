@@ -1,0 +1,30 @@
+networks:
+  redis-net:
+    external: true
+
+volumes:
+  redis-insight-data:
+
+# RedisInsight - Redis Admin Interface (Official Redis GUI)
+services:
+  redis-insight:
+    image: redis/redisinsight:2.70
+    hostname: redis-insight
+    networks:
+      - redis-net
+    environment:
+      RI_REDIS_HOST: ${REDIS_HOST}
+      RI_REDIS_PORT: ${REDIS_PORT}
+      RI_REDIS_USERNAME: default
+      RI_REDIS_PASSWORD: "${REDIS_PASSWORD}"
+      RI_REDIS_ALIAS: "Redis Master"
+      RI_LOG_LEVEL: info
+    volumes:
+      - "redis-insight-data:/data"
+    ports:
+      - "0.0.0.0:5540:5540"
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.role == b1

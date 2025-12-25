@@ -1,0 +1,14 @@
+port ${PORT} 
+protected-mode yes
+requirepass ${REDIS_PASSWORD}
+masterauth ${REDIS_PASSWORD}
+cluster-enabled yes 
+cluster-config-file nodes.conf 
+cluster-node-timeout 5000 
+cluster-announce-ip ${IP}
+cluster-announce-port ${PORT} 
+cluster-announce-bus-port 1${PORT} 
+appendonly yes
+bind 0.0.0.0
+tcp-keepalive 300
+timeout 0
