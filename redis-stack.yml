@@ -7,19 +7,22 @@ x-redis-common: &redis_common
   command: redis-server /etc/redis.conf
   networks:
     - redis-net
-  deploy:
-    replicas: 1
-    resources:
-      limits:
-        memory: 2G
-      reservations:
-        memory: 512M
   healthcheck:
     test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
     interval: 30s
     timeout: 3s
     retries: 3
     start_period: 30s
+
+x-deploy-common: &deploy_common
+  replicas: 1
+  resources:
+    limits:
+      memory: 2G
+      cpus: '1.0'
+    reservations:
+      memory: 512M
+      cpus: '0.25'
 
 services:
   redis1:
@@ -32,7 +35,7 @@ services:
       - "/opt/redis/data/node1:/data"
       - "./conf/redis-7001.conf:/etc/redis.conf:ro"
     deploy:
-      <<: *redis_common
+      <<: *deploy_common
       placement:
         constraints:
           - node.labels.role == b1
@@ -47,7 +50,7 @@ services:
       - "/opt/redis/data/node2:/data"
       - "./conf/redis-7002.conf:/etc/redis.conf:ro"
     deploy:
-      <<: *redis_common
+      <<: *deploy_common
       placement:
         constraints:
           - node.labels.role == b2
@@ -62,7 +65,7 @@ services:
       - "/opt/redis/data/node3:/data"
       - "./conf/redis-7003.conf:/etc/redis.conf:ro"
     deploy:
-      <<: *redis_common
+      <<: *deploy_common
       placement:
         constraints:
           - node.labels.role == b3
@@ -77,7 +80,7 @@ services:
       - "/opt/redis/data/node4:/data"
       - "./conf/redis-7004.conf:/etc/redis.conf:ro"
     deploy:
-      <<: *redis_common
+      <<: *deploy_common
       placement:
         constraints:
           - node.labels.role == b1
@@ -92,7 +95,7 @@ services:
       - "/opt/redis/data/node5:/data"
       - "./conf/redis-7005.conf:/etc/redis.conf:ro"
     deploy:
-      <<: *redis_common
+      <<: *deploy_common
       placement:
         constraints:
           - node.labels.role == b2
@@ -107,7 +110,7 @@ services:
       - "/opt/redis/data/node6:/data"
       - "./conf/redis-7006.conf:/etc/redis.conf:ro"
     deploy:
-      <<: *redis_common
+      <<: *deploy_common
       placement:
         constraints:
           - node.labels.role == b3
