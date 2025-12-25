@@ -25,9 +25,10 @@ cp .env.example .env
 ```
 
 Edit `.env` with your specific values:
-- **IP**: Your Redis cluster IP address
+- **NODE_B1_IP**: IP address of physical node b1 (runs redis1, redis4)
+- **NODE_B2_IP**: IP address of physical node b2 (runs redis2, redis5)
+- **NODE_B3_IP**: IP address of physical node b3 (runs redis3, redis6)
 - **REDIS_PASSWORD**: Secure password (use provided generation commands)
-- **PORT_START/PORT_END**: Redis port range (default: 7001-7006)
 
 Generate a secure password:
 
@@ -77,7 +78,7 @@ sudo chown -R 999:999 /opt/redis/data
 Build Redis configuration files for all nodes:
 
 ```bash
-./build-redis-conf.sh
+./01-build-redis-conf.sh
 ```
 
 This creates `./conf/redis-{port}.conf` files for each Redis instance.
@@ -114,7 +115,7 @@ docker service ps redis_redis6
 Create the Redis cluster configuration:
 
 ```bash
-./create-redis-cluster.sh
+./02-create-redis-cluster.sh
 ```
 
 This command:
@@ -124,17 +125,50 @@ This command:
 
 ## Step 8: Verification
 
+### Automated Cluster Testing
+
+Run comprehensive cluster tests:
+
+```bash
+./03-test-redis-cluster.sh
+```
+
+This script performs:
+- **Connectivity tests**: Verifies all 6 nodes are accessible
+- **Cluster status check**: Shows cluster health and slot distribution  
+- **Node information**: Displays master/replica relationships
+- **Basic operations**: Tests SET/GET operations with cluster redirections
+- **Resilient reporting**: Continues testing even if some nodes are down
+- **Detailed summary**: Shows available/failed nodes with recommendations
+
+**Sample output:**
+```
+[INFO] Connectivity Summary:
+  - Available nodes: 6/6
+  - Failed nodes: 0/6
+
+[SUCCESS] Redis cluster is working perfectly!
+
+[INFO] Cluster summary:
+  - Status: Healthy and operational
+  - Available nodes: 6/6
+  - Authentication: Secured
+  - Basic operations: Working
+```
+
+### Manual Cluster Verification
+
 ### Check Cluster Status
 
 ```bash
-redis-cli -h <your-ip> -p 7001 -a <your-password> cluster nodes
+redis-cli -h <node-b1-ip> -p 7001 -a <your-password> cluster nodes
 ```
 
 ### Test Cluster Operations
 
 ```bash
-redis-cli -h <your-ip> -p 7001 -a <your-password> set key1 "value1"
-redis-cli -h <your-ip> -p 7002 -a <your-password> get key1
+redis-cli -h <node-b1-ip> -p 7001 -a <your-password> set key1 "value1"
+redis-cli -h <node-b2-ip> -p 7002 -a <your-password> get key1
 ```
 
 ### Check Service Logs
@@ -158,12 +192,12 @@ spring:
     redis:
       cluster:
         nodes:
-          - ${REDIS_HOST}:7001
-          - ${REDIS_HOST}:7002
-          - ${REDIS_HOST}:7003
-          - ${REDIS_HOST}:7004
-          - ${REDIS_HOST}:7005
-          - ${REDIS_HOST}:7006
+          - ${NODE_B1_IP}:7001  # redis1 (master)
+          - ${NODE_B2_IP}:7002  # redis2 (master)
+          - ${NODE_B3_IP}:7003  # redis3 (master)
+          - ${NODE_B1_IP}:7004  # redis4 (replica)
+          - ${NODE_B2_IP}:7005  # redis5 (replica)
+          - ${NODE_B3_IP}:7006  # redis6 (replica)
         max-redirects: 3
       password: ${REDIS_PASSWORD}
       timeout: 3000ms
@@ -172,6 +206,21 @@ spring:
           refresh:
             adaptive: true
             period: 30s
+```
+
+**Alternative minimal configuration (masters only):**
+
+```yaml
+spring:
+  data:
+    redis:
+      cluster:
+        nodes:
+          - ${NODE_B1_IP}:7001  # redis1
+          - ${NODE_B2_IP}:7002  # redis2
+          - ${NODE_B3_IP}:7003  # redis3
+        max-redirects: 3
+      password: ${REDIS_PASSWORD}
 ```
 
 ## Maintenance Commands
@@ -193,19 +242,19 @@ docker stack rm redis
 ### Check Node Connectivity
 
 ```bash
-docker run --rm --network redis-net redis:7.4.7-alpine redis-cli -h <ip> -p <port> -a <password> ping
+docker run --rm --network redis-net redis:7.4.7-alpine redis-cli -h <node-ip> -p 7001 -a <password> ping
 ```
 
 ### View Cluster Information
 
 ```bash
-redis-cli -h <your-ip> -p 7001 -a <your-password> cluster info
+redis-cli -h <node-b1-ip> -p 7001 -a <your-password> cluster info
 ```
 
 ### Reset Cluster (if needed)
 
 ```bash
-redis-cli -h <your-ip> -p 7001 -a <your-password> cluster reset
+redis-cli -h <node-b1-ip> -p 7001 -a <your-password> cluster reset
 ```
 
 ## Security Notes
@@ -229,6 +278,7 @@ redis-cli -h <your-ip> -p 7001 -a <your-password> cluster reset
 ├── .env.example                # Environment template
 ├── 01-build-redis-conf.sh      # Configuration builder script
 ├── 02-create-redis-cluster.sh  # Cluster initialization script
+├── 03-test-redis-cluster.sh    # Cluster testing and monitoring script
 ├── redis-stack.yml             # Docker Swarm stack definition
 ├── redis-cluster.tmpl          # Redis configuration template
 ├── conf/                       # Generated Redis configurations
@@ -294,21 +344,21 @@ redis-cli -h <your-ip> -p 7001 -a <your-password> cluster reset
 
 | Variable | Description | Example | Required |
 |----------|-------------|---------|----------|
-| `IP` | Redis cluster IP | 192.168.0.12 | ✅ |
+| `NODE_B1_IP` | Physical node b1 IP | 192.168.0.12 | ✅ |
+| `NODE_B2_IP` | Physical node b2 IP | 192.168.0.13 | ✅ |
+| `NODE_B3_IP` | Physical node b3 IP | 192.168.0.14 | ✅ |
 | `REDIS_PASSWORD` | Authentication password | secure_password | ✅ |
-| `PORT_START` | First port number | 7001 | ✅ |
-| `PORT_END` | Last port number | 7006 | ✅ |
 
 ### Port Mapping
 
-| Service | Data Port | Cluster Bus | Physical Node |
-|---------|-----------|-------------|---------------|
-| redis1 | 7001 | 17001 | b1 (master) |
-| redis2 | 7002 | 17002 | b2 (master) |
-| redis3 | 7003 | 17003 | b3 (master) |
-| redis4 | 7004 | 17004 | b1 (replica) |
-| redis5 | 7005 | 17005 | b2 (replica) |
-| redis6 | 7006 | 17006 | b3 (replica) |
+| Service | External Port | Internal Port | Cluster Bus | Physical Node |
+|---------|---------------|---------------|-------------|---------------|
+| redis1 | 7001 | 6379 | 17001→16379 | b1 (master) |
+| redis2 | 7002 | 6379 | 17002→16379 | b2 (master) |
+| redis3 | 7003 | 6379 | 17003→16379 | b3 (master) |
+| redis4 | 7004 | 6379 | 17004→16379 | b1 (replica) |
+| redis5 | 7005 | 6379 | 17005→16379 | b2 (replica) |
+| redis6 | 7006 | 6379 | 17006→16379 | b3 (replica) |
 
 ### Useful Tools
 
@@ -322,19 +372,25 @@ redis-cli -h <your-ip> -p 7001 -a <your-password> cluster reset
 
 ```bash
 # Check cluster health
-redis-cli -h <ip> -p 7001 -a <password> cluster info | grep cluster_state
+redis-cli -h <node-b1-ip> -p 7001 -a <password> cluster info | grep cluster_state
 
-# Get cluster slot distribution
-redis-cli -h <ip> -p 7001 -a <password> cluster slots
+# Get cluster slot distribution  
+redis-cli -h <node-b1-ip> -p 7001 -a <password> cluster slots
 
 # Monitor Redis performance
-redis-cli -h <ip> -p 7001 -a <password> --latency-history
+redis-cli -h <node-b1-ip> -p 7001 -a <password> --latency-history
 
 # Generate secure password
 openssl rand -base64 32 | tr -d "=+/" | cut -c1-25
 
 # List Docker image tags
-curl -s "https://registry.hub.docker.com/v2/repositories/library/redis/tags/?page_size=30" | jq -r '.results[].name'
+curl -s "https://registry.hub.docker.com/v2/repositories/library/redis/tags/?page_size=20" | jq -r '.results[].name'
+
+# Test connectivity to all nodes
+for ip in <node-b1-ip> <node-b2-ip> <node-b3-ip>; do
+  redis-cli -h $ip -p 7001 -a <password> ping
+  redis-cli -h $ip -p 7002 -a <password> ping
+done
 ```
 
 ---

@@ -21,8 +21,10 @@ x-redis-common: &redis_common
   command: redis-server /etc/redis.conf
   networks:
     - redis-net
+  environment:
+    - REDIS_PASSWORD=${REDIS_PASSWORD}
   healthcheck:
-    test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+    test: ["CMD", "sh", "-c", "redis-cli -a $$REDIS_PASSWORD ping || exit 1"]
     interval: 30s
     timeout: 3s
     retries: 3
@@ -33,20 +35,18 @@ x-deploy-common: &deploy_common
   resources:
     limits:
       memory: 2G
-      cpus: '1.0'
     reservations:
       memory: 512M
-      cpus: '0.25'
 
 services:
   redis1:
     <<: *redis_common
     hostname: redisserver1
+    volumes:
+      - "/opt/redis/data/node1:/data"
     ports:
       - "0.0.0.0:7001:7001"
       - "0.0.0.0:17001:17001"
-    volumes:
-      - "/opt/redis/data/node1:/data"
     configs:
       - source: redis-7001-conf
         target: /etc/redis.conf
@@ -56,15 +56,21 @@ services:
       placement:
         constraints:
           - node.labels.role == b1
+    healthcheck:
+      test: ["CMD", "sh", "-c", "redis-cli -p 7001 -a $$REDIS_PASSWORD ping || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
 
   redis2:
     <<: *redis_common
     hostname: redisserver2
+    volumes:
+      - "/opt/redis/data/node2:/data"
     ports:
       - "0.0.0.0:7002:7002"
       - "0.0.0.0:17002:17002"
-    volumes:
-      - "/opt/redis/data/node2:/data"
     configs:
       - source: redis-7002-conf
         target: /etc/redis.conf
@@ -74,15 +80,21 @@ services:
       placement:
         constraints:
           - node.labels.role == b2
+    healthcheck:
+      test: ["CMD", "sh", "-c", "redis-cli -p 7002 -a $$REDIS_PASSWORD ping || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
 
   redis3:
     <<: *redis_common
     hostname: redisserver3
+    volumes:
+      - "/opt/redis/data/node3:/data"
     ports:
       - "0.0.0.0:7003:7003"
       - "0.0.0.0:17003:17003"
-    volumes:
-      - "/opt/redis/data/node3:/data"
     configs:
       - source: redis-7003-conf
         target: /etc/redis.conf
@@ -92,15 +104,21 @@ services:
       placement:
         constraints:
           - node.labels.role == b3
+    healthcheck:
+      test: ["CMD", "sh", "-c", "redis-cli -p 7003 -a $$REDIS_PASSWORD ping || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
 
   redis4:
     <<: *redis_common
     hostname: redisserver4
+    volumes:
+      - "/opt/redis/data/node4:/data"
     ports:
       - "0.0.0.0:7004:7004"
       - "0.0.0.0:17004:17004"
-    volumes:
-      - "/opt/redis/data/node4:/data"
     configs:
       - source: redis-7004-conf
         target: /etc/redis.conf
@@ -110,15 +128,21 @@ services:
       placement:
         constraints:
           - node.labels.role == b1
+    healthcheck:
+      test: ["CMD", "sh", "-c", "redis-cli -p 7004 -a $$REDIS_PASSWORD ping || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
 
   redis5:
     <<: *redis_common
     hostname: redisserver5
+    volumes:
+      - "/opt/redis/data/node5:/data"
     ports:
       - "0.0.0.0:7005:7005"
       - "0.0.0.0:17005:17005"
-    volumes:
-      - "/opt/redis/data/node5:/data"
     configs:
       - source: redis-7005-conf
         target: /etc/redis.conf
@@ -128,15 +152,21 @@ services:
       placement:
         constraints:
           - node.labels.role == b2
+    healthcheck:
+      test: ["CMD", "sh", "-c", "redis-cli -p 7005 -a $$REDIS_PASSWORD ping || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
 
   redis6:
     <<: *redis_common
     hostname: redisserver6
+    volumes:
+      - "/opt/redis/data/node6:/data"
     ports:
       - "0.0.0.0:7006:7006"
       - "0.0.0.0:17006:17006"
-    volumes:
-      - "/opt/redis/data/node6:/data"
     configs:
       - source: redis-7006-conf
         target: /etc/redis.conf
@@ -146,3 +176,9 @@ services:
       placement:
         constraints:
           - node.labels.role == b3
+    healthcheck:
+      test: ["CMD", "sh", "-c", "redis-cli -p 7006 -a $$REDIS_PASSWORD ping || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s

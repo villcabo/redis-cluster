@@ -13,11 +13,6 @@ services:
     networks:
       - redis-net
     environment:
-      RI_REDIS_HOST: ${REDIS_HOST}
-      RI_REDIS_PORT: ${REDIS_PORT}
-      RI_REDIS_USERNAME: default
-      RI_REDIS_PASSWORD: "${REDIS_PASSWORD}"
-      RI_REDIS_ALIAS: "Redis Master"
       RI_LOG_LEVEL: info
     volumes:
       - "redis-insight-data:/data"
