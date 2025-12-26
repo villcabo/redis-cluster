@@ -17,9 +17,9 @@ services:
     ports:
       - "0.0.0.0:4180:4180"
     volumes:
-      - "./oauth2-config/${OAUTH2_PROXY_CONFIG_FILE:-oauth2-proxy-keycloak.cfg}:/oauth2-proxy.cfg:ro"
-      - "./certs:/etc/oauth2-proxy/certs:ro"
-      - "./templates:/etc/oauth2-proxy/templates:ro"
+      - "./oauth2-config/${OAUTH2_PROXY_CONFIG_FILE:-oauth2-proxy-keycloak.cfg}:/oauth2-proxy.cfg"
+      - "./certs:/etc/oauth2-proxy/certs"
+      - "./templates:/etc/oauth2-proxy/templates"
     deploy:
       replicas: 1
     depends_on:
