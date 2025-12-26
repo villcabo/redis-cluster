@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Error | Síntesis</title>
+  <style>
+    :root{--s-green:#08916C;--s-blue:#00509F;--bg:#F5F7FA;--card:#fff;--text:#0F172A;--muted:#64748B;--border:rgba(15,23,42,.10);--shadow:0 10px 30px rgba(2,6,23,.12);}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:var(--text);background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    .card{width:100%;max-width:720px;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:22px}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .top img{height:28px}
+    h1{margin:14px 0 8px;font-size:22px}
+    p{margin:0;color:var(--muted);line-height:1.55}
+    .box{margin-top:14px;border:1px solid var(--border);border-radius:12px;padding:12px;background:rgba(245,247,250,.7);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;overflow:auto}
+    .actions{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap}
+    a.btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 12px;border-radius:10px;text-decoration:none;font-weight:700;border:1px solid rgba(0,80,159,.28);color:var(--s-blue);background:white}
+    a.btn.primary{background:var(--s-green);border-color:rgba(8,145,108,.35);color:white}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="top">
+      <img src="https://cuponica.com.bo/sintesis/wp-content/uploads/2025/05/LOGO-SINTESIS.png" alt="Síntesis" />
+      <span style="color:var(--muted);font-size:12px">OAuth2 Proxy</span>
+    </div>
+
+    <h1>No se pudo completar la autenticación</h1>
+    <p>
+      Ocurrió un error al validar tu sesión. Si el problema persiste, envía este detalle al equipo de TI.
+    </p>
+
+    <div class="box">{{ .Message }}</div>
+
+    <div class="actions">
+      <a class="btn primary" href="{{ .SignInURL }}">Reintentar</a>
+      <a class="btn" href="/">Volver</a>
+    </div>
+  </div>
+</body>
+</html>

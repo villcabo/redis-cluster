@@ -5,7 +5,7 @@ Complete Redis cluster deployment with 6 nodes (3 masters + 3 replicas) using Do
 ## Architecture
 
 - **6 Redis nodes**: Ports 7001-7006 (data) + 17001-17006 (cluster bus)
-- **3 Masters**: redis1, redis2, redis3 
+- **3 Masters**: redis1, redis2, redis3
 - **3 Replicas**: redis4, redis5, redis6
 - **Distribution**: 2 containers per physical node (1 master + 1 replica)
 - **High Availability**: Automatic failover and data sharding
@@ -135,7 +135,7 @@ Run comprehensive cluster tests:
 
 This script performs:
 - **Connectivity tests**: Verifies all 6 nodes are accessible
-- **Cluster status check**: Shows cluster health and slot distribution  
+- **Cluster status check**: Shows cluster health and slot distribution
 - **Node information**: Displays master/replica relationships
 - **Basic operations**: Tests SET/GET operations with cluster redirections
 - **Resilient reporting**: Continues testing even if some nodes are down
@@ -374,7 +374,7 @@ redis-cli -h <node-b1-ip> -p 7001 -a <your-password> cluster reset
 # Check cluster health
 redis-cli -h <node-b1-ip> -p 7001 -a <password> cluster info | grep cluster_state
 
-# Get cluster slot distribution  
+# Get cluster slot distribution
 redis-cli -h <node-b1-ip> -p 7001 -a <password> cluster slots
 
 # Monitor Redis performance
