@@ -1,3 +1,4 @@
 /.vscode/
 /conf/
 .env
+/oauth2-config/*config.cfg
