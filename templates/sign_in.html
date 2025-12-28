@@ -25,18 +25,18 @@
       background:
         radial-gradient(1200px 600px at 20% 10%, rgba(8,145,108,.14), transparent 60%),
         radial-gradient(1000px 500px at 90% 20%, rgba(0,80,159,.12), transparent 60%),
-        radial-gradient(900px 450px at 70% 95%, rgba(242,114,103,.10), transparent 55%),
-        repeating-linear-gradient(45deg, rgba(15,23,42,.03) 0, rgba(15,23,42,.03) 2px, transparent 2px, transparent 10px),
+        radial-gradient(900px 450px at 70% 95%, rgba(242,114,103,.10), transparent 55%)
         var(--bg);
       min-height:100vh;
       display:flex;
+      flex-direction:column;
       align-items:center;
       justify-content:center;
       padding:32px 16px;
     }
-
-    .wrap{width:100%; max-width:980px; display:grid; grid-template-columns: 1.2fr 1fr; gap:22px;}
+    .wrap{width:100%; max-width:980px; display:grid; grid-template-columns: 1.2fr 1fr; gap:22px; margin-bottom:0;}
     @media (max-width: 900px){ .wrap{grid-template-columns:1fr; max-width:520px;} }
+    @media (max-width: 600px){ body{padding:16px 4px;} .wrap{gap:12px;} }
 
     .hero{
       border:1px solid var(--border);
@@ -128,6 +128,7 @@
       overflow:hidden;
       isolation:isolate;
       animation: btnPulse 3.2s ease-in-out infinite;
+      cursor:pointer;
     }
     .btn:before{
       content:"";
@@ -183,6 +184,7 @@
       border-color:rgba(0,80,159,.28);
       box-shadow:none;
       animation:none;
+      cursor:pointer;
     }
     .btn.secondary:hover{filter:none; transform: translateY(-1px)}
 
@@ -246,13 +248,21 @@
     }
     .footer strong{color:#334155}
     .page-footer{
-      margin-top:18px;
+      width:100vw;
+      left:0; right:0;
+      position:fixed;
+      bottom:0;
       font-size:12px;
       color:var(--muted);
       text-align:center;
+      background:var(--bg);
+      padding:12px 0 8px 0;
+      z-index:100;
+      box-shadow:0 -2px 16px rgba(15,23,42,.04);
     }
     .page-footer a{color:var(--s-blue); text-decoration:none}
     .page-footer a:hover{text-decoration:underline}
+    @media (max-width: 900px){.page-footer{font-size:11px;}}
   </style>
 </head>
 <body>
@@ -266,35 +276,26 @@
           <div class="tag">Acceso corporativo a aplicaciones internas</div>
         </div>
       </div>
-
       <h1>Inicia sesión para continuar</h1>
       <p class="lead">
         Estás accediendo a una aplicación protegida por Single Sign-On (SSO).
         Usa tu cuenta corporativa para autenticarte y continuar.
       </p>
-
       <div class="pillrow">
         <span class="pill">SSO / Keycloak</span>
         <span class="pill">Sesión segura</span>
         <span class="pill">Acceso auditado</span>
       </div>
-
       <div class="divider"></div>
       <p class="lead" style="max-width:64ch">
         Si no tienes acceso, solicita permisos al equipo de TI indicando el nombre de la aplicación y tu usuario.
       </p>
     </section>
-
     <main class="card" aria-label="Login">
       <h2>Autenticación</h2>
       <p class="small">
         Proveedor: <strong>{{ .ProviderName }}</strong>
       </p>
-
-      {{ if .LogoData }}
-      <div class="hint">{{ .LogoData }}</div>
-      {{ end }}
-
       <form method="GET" action="{{ .ProxyPrefix }}/start">
         <input type="hidden" name="rd" value="{{ .Redirect }}">
         {{ if .SignInMessage }}
@@ -309,36 +310,26 @@
           <span>Entrar con {{ .ProviderName }}</span>
         </button>
       </form>
-
       <div class="meta">
         ¿Problemas para entrar? <a href="#" onclick="alert('Contacta a TI con el nombre de la app y tu usuario.');return false;">Contactar soporte</a>
       </div>
-
-      <div class="footer">
-        Protegido por <strong>OAuth2 Proxy</strong>
-      </div>
-
       {{ if .CustomLogin }}
       <div class="divider"></div>
       <form method="POST" action="{{ .ProxyPrefix }}/sign_in">
         <input type="hidden" name="rd" value="{{ .Redirect }}">
-
         <div class="field">
           <label class="label" for="username">Usuario</label>
           <input class="input" type="text" placeholder="usuario@empresa.com" name="username" id="username">
         </div>
-
         <div class="field">
           <label class="label" for="password">Contraseña</label>
           <input class="input" type="password" placeholder="********" name="password" id="password">
         </div>
-
         <div class="form-actions">
           <button class="btn secondary" type="submit">Ingresar</button>
         </div>
       </form>
       {{ end }}
-
       {{ if eq .StatusCode 400 401 }}
       <div class="alert">
         {{ if eq .StatusCode 400 }}
@@ -351,7 +342,6 @@
       {{ end }}
     </main>
   </div>
-
   <script>
     if (window.location.hash) {
       (function() {
@@ -366,7 +356,6 @@
       })();
     }
   </script>
-
   <footer class="page-footer">
     {{ if eq .Footer "-" }}
     {{ else if eq .Footer ""}}
