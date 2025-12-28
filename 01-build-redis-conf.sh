@@ -80,6 +80,49 @@ fi
 log_info "Template file found: ./redis-cluster.tmpl"
 echo ""
 
+# Preview what will be done
+echo "${YELLOW}=== PREVIEW OF OPERATIONS ===${RESET}"
+echo ""
+log_warning "The following actions will be performed:"
+echo "  1. Configuration files will be generated/overwritten in: ./conf/"
+echo "  2. Target files that will be created/replaced:"
+
+for port in $(seq 7001 7006); do
+    config_file="./conf/redis-${port}.conf"
+    if [ -f "$config_file" ]; then
+        echo "     ${RED}● $config_file (WILL BE OVERWRITTEN)${RESET}"
+    else
+        echo "     ${GREEN}● $config_file (NEW FILE)${RESET}"
+    fi
+done
+
+echo ""
+echo "  3. Node IP assignments that will be used:"
+echo "     - Port 7001, 7004 → $NODE_B1_IP (Node B1)"
+echo "     - Port 7002, 7005 → $NODE_B2_IP (Node B2)"
+echo "     - Port 7003, 7006 → $NODE_B3_IP (Node B3)"
+echo ""
+echo "  4. Redis password will be configured: [PROTECTED]"
+echo ""
+echo "${RED}⚠️  WARNING: Existing configuration files will be completely replaced!${RESET}"
+echo ""
+
+# Confirmation prompt
+echo -n "Do you want to proceed with the configuration generation? [yes/No]: "
+read -r confirmation
+
+case "$confirmation" in
+    yes)
+        log_info "User confirmed. Proceeding with configuration generation..."
+        ;;
+    *)
+        log_warning "Operation cancelled by user."
+        exit 0
+        ;;
+esac
+
+echo ""
+
 # Generate configuration files
 log_info "Starting configuration file generation..."
 config_count=0
