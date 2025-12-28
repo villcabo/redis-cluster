@@ -237,6 +237,144 @@ docker service update --image redis:7.4.7-alpine redis_redis1
 docker stack rm redis
 ```
 
+### Manual Role Management
+
+Use these commands to manually manage node roles in the Redis cluster.
+
+#### Check Current Roles
+
+```bash
+# View all nodes and their roles (master/slave)
+docker run --rm --network host -e REDISCLI_AUTH=$REDIS_PASSWORD redis:7.4.7-alpine redis-cli \
+  -h <node-ip> -p 7001 cluster nodes
+
+# Output format: <node-id> <ip:port> <flags> <master-id> <ping> <pong> <config-epoch> <link-state> <slot>
+# flags: master, slave, myself, fail, etc.
+```
+
+#### Demote a Master to Slave (make it replicate another master)
+
+```bash
+# Step 1: Get the node ID of the target master (the one you want this node to replicate)
+docker run --rm --network host -e REDISCLI_AUTH=$REDIS_PASSWORD redis:7.4.7-alpine redis-cli \
+  -h <target-master-ip> -p <target-master-port> cluster myid
+
+# Step 2: Tell the node to become a slave of the target master
+docker run --rm --network host -e REDISCLI_AUTH=$REDIS_PASSWORD redis:7.4.7-alpine redis-cli \
+  -h <node-to-demote-ip> -p <node-to-demote-port> cluster replicate <target-master-node-id>
+```
+
+**Example:** Make node 7004 a slave of node 7001
+```bash
+# Get 7001's node ID
+MASTER_ID=$(docker run --rm --network host -e REDISCLI_AUTH=$REDIS_PASSWORD redis:7.4.7-alpine redis-cli \
+  -h <node-b1-ip> -p 7001 cluster myid)
+
+# Make 7004 replicate 7001
+docker run --rm --network host -e REDISCLI_AUTH=$REDIS_PASSWORD redis:7.4.7-alpine redis-cli \
+  -h <node-b1-ip> -p 7004 cluster replicate $MASTER_ID
+```
+
+#### Promote a Slave to Master (failover)
+
+```bash
+# Run CLUSTER FAILOVER on the slave you want to promote
+# This will make it take over as master (the old master becomes slave)
+docker run --rm --network host -e REDISCLI_AUTH=$REDIS_PASSWORD redis:7.4.7-alpine redis-cli \
+  -h <slave-ip> -p <slave-port> cluster failover
+
+# Force failover (use when master is down or unresponsive)
+docker run --rm --network host -e REDISCLI_AUTH=$REDIS_PASSWORD redis:7.4.7-alpine redis-cli \
+  -h <slave-ip> -p <slave-port> cluster failover force
+
+# Takeover (use when master is completely unreachable and majority agreement not possible)
+docker run --rm --network host -e REDISCLI_AUTH=$REDIS_PASSWORD redis:7.4.7-alpine redis-cli \
+  -h <slave-ip> -p <slave-port> cluster failover takeover
+```
+
+**Example:** Promote node 7003 (currently a slave) back to master
+```bash
+docker run --rm --network host -e REDISCLI_AUTH=$REDIS_PASSWORD redis:7.4.7-alpine redis-cli \
+  -h <node-b3-ip> -p 7003 cluster failover
+```
+
+#### Verify Role Change
+
+```bash
+# Check the node's current role
+docker run --rm --network host -e REDISCLI_AUTH=$REDIS_PASSWORD redis:7.4.7-alpine redis-cli \
+  -h <node-ip> -p <port> role
+
+# Output: "master" or "slave"
+```
+
+#### Common Scenarios
+
+| Scenario | Command to Use |
+|----------|----------------|
+| Slave is acting as master, original master is back up | Run `CLUSTER FAILOVER` on original master |
+| Master is acting as slave | Run `CLUSTER FAILOVER` on the node to promote it |
+| Force a specific node to become slave | Run `CLUSTER REPLICATE <master-id>` on the node |
+| Emergency promotion when master is down | Run `CLUSTER FAILOVER FORCE` on slave |
+
+#### Reset/Delete Cluster
+
+**⚠️ WARNING: These commands will destroy all data in the cluster!**
+
+```bash
+# Step 1: Reset each node individually (run on ALL 6 nodes)
+# This removes cluster configuration and flushes all data
+
+# Reset node 7001
+docker run --rm --network host -e REDISCLI_AUTH=$REDIS_PASSWORD redis:7.4.7-alpine redis-cli \
+  -h <node-b1-ip> -p 7001 cluster reset hard
+
+# Reset node 7002
+docker run --rm --network host -e REDISCLI_AUTH=$REDIS_PASSWORD redis:7.4.7-alpine redis-cli \
+  -h <node-b2-ip> -p 7002 cluster reset hard
+
+# Reset node 7003
+docker run --rm --network host -e REDISCLI_AUTH=$REDIS_PASSWORD redis:7.4.7-alpine redis-cli \
+  -h <node-b3-ip> -p 7003 cluster reset hard
+
+# Reset node 7004
+docker run --rm --network host -e REDISCLI_AUTH=$REDIS_PASSWORD redis:7.4.7-alpine redis-cli \
+  -h <node-b1-ip> -p 7004 cluster reset hard
+
+# Reset node 7005
+docker run --rm --network host -e REDISCLI_AUTH=$REDIS_PASSWORD redis:7.4.7-alpine redis-cli \
+  -h <node-b2-ip> -p 7005 cluster reset hard
+
+# Reset node 7006
+docker run --rm --network host -e REDISCLI_AUTH=$REDIS_PASSWORD redis:7.4.7-alpine redis-cli \
+  -h <node-b3-ip> -p 7006 cluster reset hard
+```
+
+**One-liner to reset all nodes (using environment variables):**
+```bash
+# Make sure to source your .env file first: source .env
+for port in 7001 7002 7003 7004 7005 7006; do
+  case $port in
+    7001|7004) host=$NODE_B1_IP ;;
+    7002|7005) host=$NODE_B2_IP ;;
+    7003|7006) host=$NODE_B3_IP ;;
+  esac
+  echo "Resetting $host:$port..."
+  docker run --rm --network host -e REDISCLI_AUTH=$REDIS_PASSWORD redis:7.4.7-alpine redis-cli \
+    -h $host -p $port cluster reset hard
+done
+```
+
+**After resetting, you can recreate the cluster:**
+```bash
+./02-create-redis-cluster.sh
+```
+
+| Reset Type | Description |
+|------------|-------------|
+| `CLUSTER RESET SOFT` | Resets cluster config but keeps data |
+| `CLUSTER RESET HARD` | Resets cluster config AND flushes all data |
+
 ## Troubleshooting
 
 ### Check Node Connectivity

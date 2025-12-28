@@ -205,6 +205,7 @@ PREVIEW+="${YELLOW}Expected Cluster Structure:${RESET}\n"
 for i in 0 1 2; do
     PREVIEW+="  - Pair $((i+1)): ${MASTERS[$i]} (MASTER) ← ${SLAVES[$i]} (SLAVE) \n"
 done
+PREVIEW+="\n"
 
 PREVIEW+="Cluster detected: "
 if [ "$no_nodes_accessible" = true ]; then
