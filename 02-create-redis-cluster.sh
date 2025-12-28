@@ -44,7 +44,10 @@ ALL_NODES=("${MASTERS[@]}" "${SLAVES[@]}")
 
 # Helper: run redis-cli in docker
 redis_cli() {
-    docker run --rm --network host -e REDISCLI_AUTH="$REDIS_PASSWORD" redis:7.4.7-alpine redis-cli -h "$1" -p "$2" "$@" || return 1
+    local host="$1"
+    local port="$2"
+    shift 2
+    docker run --rm --network host -e REDISCLI_AUTH="$REDIS_PASSWORD" redis:7.4.7-alpine redis-cli -h "$host" -p "$port" "$@" || return 1
 }
 
 # Helper: get cluster nodes info from a reachable node
