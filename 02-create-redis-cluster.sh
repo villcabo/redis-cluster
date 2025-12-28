@@ -203,7 +203,7 @@ PREVIEW="${YELLOW}=== PREVIEW OF OPERATIONS ===${RESET}\n\n"
 # Show expected structure
 PREVIEW+="${YELLOW}Expected Cluster Structure:${RESET}\n"
 for i in 0 1 2; do
-    PREVIEW+="  - Pair $((i+1)): ${MASTERS[$i]} (MASTER) ← ${SLAVES[$i]} (SLAVE)"
+    PREVIEW+="  - Pair $((i+1)): ${MASTERS[$i]} (MASTER) ← ${SLAVES[$i]} (SLAVE) \n"
 done
 
 PREVIEW+="Cluster detected: "
