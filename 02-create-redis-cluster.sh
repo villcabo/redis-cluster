@@ -88,9 +88,11 @@ no_nodes_accessible=false
 # Arrays for actions
 missing_masters=()
 missing_slaves=()
-failover_recovery=()  # Masters to restore from failover
-down_slaves=()        # Slaves that are down (no action needed)
-down_masters=()       # Masters that are down
+failover_recovery=()    # Masters to restore from failover (legacy, keeping for compatibility)
+wrong_role_slaves=()    # Slaves that are acting as master (need to demote)
+wrong_role_masters=()   # Masters that are acting as slave (need to promote)
+down_slaves=()          # Slaves that are down (no action needed)
+down_masters=()         # Masters that are down
 
 # Associative arrays for node status
 declare -A current_roles
@@ -150,29 +152,46 @@ for i in 0 1 2; do
     [[ -n "$master_flags" ]] && master_in_cluster=true
     [[ -n "$slave_flags" ]] && slave_in_cluster=true
     
-    # Case 1: Master down, slave is now master
-    if [[ "$slave_flags" == *master* && ("$master_flags" == *fail* || "$master_up" == "no") ]]; then
+    # Determine current roles
+    master_is_master=false
+    master_is_slave=false
+    slave_is_master=false
+    slave_is_slave=false
+    [[ "$master_flags" == *master* ]] && master_is_master=true
+    [[ "$master_flags" == *slave* ]] && master_is_slave=true
+    [[ "$slave_flags" == *master* ]] && slave_is_master=true
+    [[ "$slave_flags" == *slave* ]] && slave_is_slave=true
+    
+    # Case 1: Slave is acting as master (wrong role)
+    if [[ "$slave_is_master" == "true" && "$slave_up" == "yes" ]]; then
         if [[ "$master_up" == "yes" ]]; then
-            # Master is back up! Need to do failover recovery
-            failover_recovery+=("$i")
+            # Master is up, we can restore the structure
+            # Add to wrong_role_slaves for fixing
+            wrong_role_slaves+=("$i")
         else
+            # Master is down, slave is correctly acting as master - no action
             down_masters+=("$master (slave $slave acting as master)")
         fi
     fi
     
-    # Case 2: Slave down - just note it, no action
+    # Case 2: Master is acting as slave (wrong role) - needs to be promoted back
+    if [[ "$master_is_slave" == "true" && "$master_up" == "yes" ]]; then
+        wrong_role_masters+=("$i")
+    fi
+    
+    # Case 3: Slave down - just note it, no action
     if [[ "$slave_up" == "no" || "$slave_flags" == *fail* ]]; then
-        if [[ "$slave_flags" != *master* ]]; then
+        if [[ "$slave_is_master" == "false" ]]; then
             down_slaves+=("$slave")
         fi
     fi
     
-    # Case 3: Master not in cluster but reachable
+    # Case 4: Master not in cluster but reachable
     if [[ "$master_in_cluster" == "false" && "$master_up" == "yes" ]]; then
         missing_masters+=("$master")
     fi
     
-    # Case 4: Slave not in cluster but reachable
+    # Case 5: Slave not in cluster but reachable
     if [[ "$slave_in_cluster" == "false" && "$slave_up" == "yes" ]]; then
         missing_slaves+=("$i")  # Store index to know which master it belongs to
     fi
@@ -247,15 +266,26 @@ else
     PREVIEW+="${YELLOW}Actions to be performed:${RESET}\n"
     has_actions=false
     
-    # Failover recovery actions
-    if [ ${#failover_recovery[@]} -gt 0 ]; then
+    # Wrong role slaves - slaves that are acting as master
+    if [ ${#wrong_role_slaves[@]} -gt 0 ]; then
         has_actions=true
-        PREVIEW+="\n${GREEN}[FAILOVER RECOVERY]${RESET} Restore original master-slave structure:\n"
-        for idx in "${failover_recovery[@]}"; do
+        PREVIEW+="\n${GREEN}[RESTORE STRUCTURE]${RESET} Fix slaves acting as master:\n"
+        for idx in "${wrong_role_slaves[@]}"; do
             master="${MASTERS[$idx]}"
             slave="${SLAVES[$idx]}"
-            PREVIEW+="  → Promote $master back to MASTER\n"
             PREVIEW+="  → Demote $slave back to SLAVE of $master\n"
+        done
+    fi
+    
+    # Wrong role masters - masters that are acting as slave
+    if [ ${#wrong_role_masters[@]} -gt 0 ]; then
+        has_actions=true
+        PREVIEW+="\n${GREEN}[PROMOTE MASTERS]${RESET} Fix masters acting as slave:\n"
+        for idx in "${wrong_role_masters[@]}"; do
+            master="${MASTERS[$idx]}"
+            slave="${SLAVES[$idx]}"
+            PREVIEW+="  → Promote $master back to MASTER via CLUSTER FAILOVER\n"
+            PREVIEW+="  → $slave will become slave of $master\n"
         done
     fi
     
@@ -362,54 +392,36 @@ if [ "$no_nodes_accessible" = true ]; then
 elif [ "$cluster_exists" = true ]; then
     actions_performed=false
     
-    # 1. Failover Recovery - Restore original master-slave structure
-    if [ ${#failover_recovery[@]} -gt 0 ]; then
+    # 1. Fix wrong role slaves - demote slaves that are acting as master
+    if [ ${#wrong_role_slaves[@]} -gt 0 ]; then
         actions_performed=true
-        log_info "Performing failover recovery..."
+        log_info "Fixing slaves with wrong role (acting as master)..."
         
-        for idx in "${failover_recovery[@]}"; do
+        for idx in "${wrong_role_slaves[@]}"; do
             master="${MASTERS[$idx]}"
             slave="${SLAVES[$idx]}"
             master_host="${master%%:*}"; master_port="${master##*:}"
             slave_host="${slave%%:*}"; slave_port="${slave##*:}"
             
-            # Get the current master ID (the slave that took over)
-            slave_node_id="${node_ids[$slave]}"
-            
-            # Step 1: Perform CLUSTER FAILOVER on the original master to take back control
-            log_info "Triggering failover on $master to restore it as master..."
-            
-            # First, we need to make sure the original master is synced with the current master (slave)
-            # The original master should be connected to the cluster and syncing
-            
-            # Get the master ID for the original master
+            # Get the master's node ID
             master_node_id=$(docker run --rm --network host -e REDISCLI_AUTH="$REDIS_PASSWORD" redis:7.4.7-alpine redis-cli \
                 -h "$master_host" -p "$master_port" cluster myid 2>/dev/null | tr -d '\r')
             
             if [[ -n "$master_node_id" ]]; then
-                # If the original master is currently a slave of the promoted slave, 
-                # we can trigger CLUSTER FAILOVER on it
-                log_info "Executing CLUSTER FAILOVER on $master..."
+                log_info "Demoting $slave to become slave of $master..."
                 docker run --rm --network host -e REDISCLI_AUTH="$REDIS_PASSWORD" redis:7.4.7-alpine redis-cli \
-                    -h "$master_host" -p "$master_port" cluster failover 2>/dev/null || true
+                    -h "$slave_host" -p "$slave_port" cluster replicate "$master_node_id" 2>/dev/null || true
                 
-                sleep 2
+                sleep 1
                 
-                # Verify the failover worked
+                # Verify the change
                 new_role=$(docker run --rm --network host -e REDISCLI_AUTH="$REDIS_PASSWORD" redis:7.4.7-alpine redis-cli \
-                    -h "$master_host" -p "$master_port" role 2>/dev/null | head -1 | tr -d '\r')
+                    -h "$slave_host" -p "$slave_port" role 2>/dev/null | head -1 | tr -d '\r')
                 
-                if [[ "$new_role" == "master" ]]; then
-                    log_success "$master is now master again"
-                    
-                    # Now ensure the slave is replicating the master
-                    log_info "Ensuring $slave is replicating $master..."
-                    docker run --rm --network host -e REDISCLI_AUTH="$REDIS_PASSWORD" redis:7.4.7-alpine redis-cli \
-                        -h "$slave_host" -p "$slave_port" cluster replicate "$master_node_id" 2>/dev/null || true
-                    
-                    log_success "Failover recovery completed for pair: $master <- $slave"
+                if [[ "$new_role" == "slave" ]]; then
+                    log_success "$slave is now slave of $master"
                 else
-                    log_warning "Failover may not have completed. Current role of $master: $new_role"
+                    log_warning "Role change may not have completed. Current role of $slave: $new_role"
                 fi
             else
                 log_error "Could not get node ID for $master"
@@ -417,7 +429,47 @@ elif [ "$cluster_exists" = true ]; then
         done
     fi
     
-    # 2. Add missing masters
+    # 2. Fix wrong role masters - promote masters that are acting as slave
+    if [ ${#wrong_role_masters[@]} -gt 0 ]; then
+        actions_performed=true
+        log_info "Fixing masters with wrong role (acting as slave)..."
+        
+        for idx in "${wrong_role_masters[@]}"; do
+            master="${MASTERS[$idx]}"
+            slave="${SLAVES[$idx]}"
+            master_host="${master%%:*}"; master_port="${master##*:}"
+            slave_host="${slave%%:*}"; slave_port="${slave##*:}"
+            
+            log_info "Promoting $master back to master via CLUSTER FAILOVER..."
+            docker run --rm --network host -e REDISCLI_AUTH="$REDIS_PASSWORD" redis:7.4.7-alpine redis-cli \
+                -h "$master_host" -p "$master_port" cluster failover 2>/dev/null || true
+            
+            sleep 2
+            
+            # Verify the change
+            new_role=$(docker run --rm --network host -e REDISCLI_AUTH="$REDIS_PASSWORD" redis:7.4.7-alpine redis-cli \
+                -h "$master_host" -p "$master_port" role 2>/dev/null | head -1 | tr -d '\r')
+            
+            if [[ "$new_role" == "master" ]]; then
+                log_success "$master is now master"
+                
+                # Get the master's node ID to make slave replicate it
+                master_node_id=$(docker run --rm --network host -e REDISCLI_AUTH="$REDIS_PASSWORD" redis:7.4.7-alpine redis-cli \
+                    -h "$master_host" -p "$master_port" cluster myid 2>/dev/null | tr -d '\r')
+                
+                if [[ -n "$master_node_id" ]]; then
+                    log_info "Setting $slave to replicate $master..."
+                    docker run --rm --network host -e REDISCLI_AUTH="$REDIS_PASSWORD" redis:7.4.7-alpine redis-cli \
+                        -h "$slave_host" -p "$slave_port" cluster replicate "$master_node_id" 2>/dev/null || true
+                    log_success "Pair restored: $master (master) <- $slave (slave)"
+                fi
+            else
+                log_warning "Failover may not have completed. Current role of $master: $new_role"
+            fi
+        done
+    fi
+    
+    # 3. Add missing masters
     if [ ${#missing_masters[@]} -gt 0 ]; then
         actions_performed=true
         log_info "Adding missing master nodes..."
@@ -443,7 +495,7 @@ elif [ "$cluster_exists" = true ]; then
         fi
     fi
     
-    # 3. Add missing slaves with correct master assignment
+    # 4. Add missing slaves with correct master assignment
     if [ ${#missing_slaves[@]} -gt 0 ]; then
         actions_performed=true
         log_info "Adding missing slave nodes..."
