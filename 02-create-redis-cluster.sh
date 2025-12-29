@@ -83,6 +83,8 @@ CLUSTER_INFO_RAW="$(get_cluster_info)"
 # Parse cluster state
 cluster_exists=false
 cluster_state="unknown"
+cluster_slots_ok=false
+cluster_broken=false
 no_nodes_accessible=false
 
 # Arrays for actions
@@ -106,6 +108,19 @@ fi
 if [[ -n "$CLUSTER_INFO_RAW" ]]; then
     cluster_exists=true
     cluster_state=$(echo "$CLUSTER_INFO_RAW" | grep cluster_state | cut -d: -f2 | tr -d '\r')
+    cluster_slots_assigned=$(echo "$CLUSTER_INFO_RAW" | grep cluster_slots_assigned | cut -d: -f2 | tr -d '\r')
+    cluster_slots_ok_val=$(echo "$CLUSTER_INFO_RAW" | grep cluster_slots_ok | cut -d: -f2 | tr -d '\r')
+    cluster_known_nodes=$(echo "$CLUSTER_INFO_RAW" | grep cluster_known_nodes | cut -d: -f2 | tr -d '\r')
+    
+    # Check if all slots are assigned (16384)
+    if [[ "$cluster_slots_ok_val" == "1" && "$cluster_slots_assigned" == "16384" ]]; then
+        cluster_slots_ok=true
+    fi
+    
+    # Detect broken cluster: exists but slots not OK or state is fail with few nodes
+    if [[ "$cluster_state" == "fail" && ("$cluster_slots_assigned" -lt 16384 || "$cluster_known_nodes" -lt 6) ]]; then
+        cluster_broken=true
+    fi
 fi
 
 # Check reachability of each node
@@ -212,6 +227,12 @@ if [ "$no_nodes_accessible" = true ]; then
     PREVIEW+="${RED}COULD NOT QUERY ANY CLUSTER NODE${RESET}\n"
     PREVIEW+="\nCould not get information from any node. Containers may not be running or ports may not be accessible.\n"
     PREVIEW+="\n${YELLOW}Action:${RESET} Cluster creation from scratch will be attempted if you confirm.\n"
+elif [ "$cluster_broken" = true ]; then
+    PREVIEW+="${RED}BROKEN${RESET} (state: $cluster_state, slots: ${cluster_slots_assigned:-0}/16384, nodes: ${cluster_known_nodes:-0}/6)\n"
+    PREVIEW+="\n${RED}⚠️  The cluster is in an inconsistent state!${RESET}\n"
+    PREVIEW+="This happens when a partial cluster exists without all slots assigned.\n"
+    PREVIEW+="\n${YELLOW}Action:${RESET} All nodes will be RESET and the cluster will be RECREATED from scratch.\n"
+    PREVIEW+="${RED}WARNING: This will delete any existing data!${RESET}\n"
 else
     if [ "$cluster_exists" = true ]; then
         PREVIEW+="${GREEN}YES${RESET} (state: $cluster_state)\n"
@@ -384,6 +405,59 @@ if [ "$no_nodes_accessible" = true ]; then
     done
     
     log_success "Cluster created with specific master-slave assignments."
+    log_info "Master-Slave mapping:"
+    for i in 0 1 2; do
+        log_info "  ${MASTERS[$i]} (master) <- ${SLAVES[$i]} (slave)"
+    done
+elif [ "$cluster_broken" = true ]; then
+    # Cluster is in broken state - reset all nodes and recreate
+    log_warning "Cluster is in broken state. Resetting all nodes..."
+    
+    # Step 1: Reset all nodes
+    for node in "${ALL_NODES[@]}"; do
+        host="${node%%:*}"; port="${node##*:}"
+        log_info "Resetting node $node..."
+        docker run --rm --network host -e REDISCLI_AUTH="$REDIS_PASSWORD" redis:7.4.7-alpine redis-cli \
+            -h "$host" -p "$port" cluster reset hard 2>/dev/null || true
+    done
+    
+    sleep 2
+    
+    # Step 2: Create cluster with only masters (no replicas)
+    log_info "Creating cluster with masters only..."
+    MASTERS_ARGS=""
+    for n in "${MASTERS[@]}"; do MASTERS_ARGS+="$n "; done
+    docker run --rm --network host -e REDISCLI_AUTH="$REDIS_PASSWORD" redis:7.4.7-alpine redis-cli \
+        --cluster create $MASTERS_ARGS --cluster-yes
+    
+    # Wait for cluster to stabilize
+    sleep 3
+    
+    # Step 3: Get master node IDs
+    log_info "Getting master node IDs..."
+    declare -A master_node_ids
+    for master in "${MASTERS[@]}"; do
+        host="${master%%:*}"; port="${master##*:}"
+        node_id=$(docker run --rm --network host -e REDISCLI_AUTH="$REDIS_PASSWORD" redis:7.4.7-alpine redis-cli \
+            -h "$host" -p "$port" cluster myid 2>/dev/null | tr -d '\r')
+        master_node_ids["$master"]="$node_id"
+        log_info "Master $master has ID: $node_id"
+    done
+    
+    # Step 4: Add each slave and assign to its corresponding master
+    for i in 0 1 2; do
+        slave="${SLAVES[$i]}"
+        master="${MASTERS[$i]}"
+        master_id="${master_node_ids[$master]}"
+        
+        log_info "Adding slave $slave to cluster..."
+        docker run --rm --network host -e REDISCLI_AUTH="$REDIS_PASSWORD" redis:7.4.7-alpine redis-cli \
+            --cluster add-node "$slave" "${MASTERS[0]}" --cluster-slave --cluster-master-id "$master_id"
+        
+        sleep 1
+    done
+    
+    log_success "Cluster recreated with specific master-slave assignments."
     log_info "Master-Slave mapping:"
     for i in 0 1 2; do
         log_info "  ${MASTERS[$i]} (master) <- ${SLAVES[$i]} (slave)"
