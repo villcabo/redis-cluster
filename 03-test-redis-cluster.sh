@@ -38,10 +38,10 @@ log_warning() {
 # Load environment variables from .env file
 if [ -f .env ]; then
     log_info "Loading variables from .env file..."
-    REDIS_PASSWORD=$(grep "^REDIS_PASSWORD=" .env | cut -d'=' -f2- | sed 's/#.*//' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | tr -d '"'"'"')')
-    NODE_B1_IP=$(grep "^NODE_B1_IP=" .env | cut -d'=' -f2- | sed 's/#.*//' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | tr -d '"'"'"')')
-    NODE_B2_IP=$(grep "^NODE_B2_IP=" .env | cut -d'=' -f2- | sed 's/#.*//' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | tr -d '"'"'"')')
-    NODE_B3_IP=$(grep "^NODE_B3_IP=" .env | cut -d'=' -f2- | sed 's/#.*//' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | tr -d '"'"'"')')
+    REDIS_PASSWORD=$(grep "^REDIS_PASSWORD=" .env | cut -d'=' -f2- | sed 's/#.*//' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | tr -d "'\"")
+    NODE_B1_IP=$(grep "^NODE_B1_IP=" .env | cut -d'=' -f2- | sed 's/#.*//' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | tr -d "'\"")
+    NODE_B2_IP=$(grep "^NODE_B2_IP=" .env | cut -d'=' -f2- | sed 's/#.*//' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | tr -d "'\"")
+    NODE_B3_IP=$(grep "^NODE_B3_IP=" .env | cut -d'=' -f2- | sed 's/#.*//' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | tr -d "'\"")
 
     if [ -z "$REDIS_PASSWORD" ]; then
         log_error "REDIS_PASSWORD not found in .env file"
@@ -176,9 +176,9 @@ fi
 echo ""
 log_info "Cluster summary:"
 echo "  - Status: $CLUSTER_STATUS"
-echo "  - Available nodes: ${GREEN}$AVAILABLE_COUNT/6${RESET} ($(echo "${AVAILABLE_NODES[@]}" | tr ' ' ', '))"
+echo "  - Available nodes: ${GREEN}$AVAILABLE_COUNT/6${RESET} ($(echo "${AVAILABLE_NODES[@]}" | sed 's/ /, /g'))"
 if [ $FAILED_COUNT -gt 0 ]; then
-    echo "  - Failed nodes: ${RED}$FAILED_COUNT/6${RESET} ($(echo "${FAILED_NODES[@]}" | tr ' ' ', '))"
+    echo "  - Failed nodes: ${RED}$FAILED_COUNT/6${RESET} ($(echo "${FAILED_NODES[@]}" | sed 's/ /, /g'))"
 fi
 echo "  - Authentication: $([ -n "$REDIS_PASSWORD" ] && echo "${GREEN}Secured${RESET}" || echo "${YELLOW}Open${RESET}")"
 if [ $AVAILABLE_COUNT -ge 3 ]; then
@@ -190,7 +190,7 @@ echo ""
 if [ $FAILED_COUNT -eq 0 ]; then
     log_success "Your Redis cluster is ready for production use!"
 elif [ $AVAILABLE_COUNT -ge 3 ]; then
-    log_warning "Cluster operational but investigate failed nodes: $(echo "${FAILED_NODES[@]}" | tr ' ' ', ')"
+    log_warning "Cluster operational but investigate failed nodes: $(echo "${FAILED_NODES[@]}" | sed 's/ /, /g')"
 else
     log_error "Cluster requires immediate attention - too many failed nodes!"
 fi

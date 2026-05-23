@@ -179,9 +179,14 @@ for i in 0 1 2; do
     
     # Case 1: Slave is acting as master (wrong role)
     if [[ "$slave_is_master" == "true" && "$slave_up" == "yes" ]]; then
-        if [[ "$master_up" == "yes" ]]; then
-            # Master is up, we can restore the structure
-            # Add to wrong_role_slaves for fixing
+        if [[ "$master_up" == "yes" && "$master_is_slave" == "true" ]]; then
+            # Full role inversion: designated master is acting as slave.
+            # Case 2 (failover of the designated master) restores the whole pair,
+            # so don't queue a demote here — replicating to a node that is still
+            # a slave fails and emits a misleading warning.
+            :
+        elif [[ "$master_up" == "yes" ]]; then
+            # Master is up and a real master; demote the slave back to it.
             wrong_role_slaves+=("$i")
         else
             # Master is down, slave is correctly acting as master - no action
@@ -481,10 +486,18 @@ elif [ "$cluster_exists" = true ]; then
                 -h "$master_host" -p "$master_port" cluster myid 2>/dev/null | tr -d '\r')
             
             if [[ -n "$master_node_id" ]]; then
+                # Ensure the node knows the master before replicating. An orphaned
+                # node (e.g. after CLUSTER RESET) is isolated and would reject
+                # CLUSTER REPLICATE because the target ID is unknown to it.
+                log_info "Ensuring $slave knows the cluster (CLUSTER MEET $master)..."
+                docker run --rm --network host -e REDISCLI_AUTH="$REDIS_PASSWORD" redis:7.4.7-alpine redis-cli \
+                    -h "$slave_host" -p "$slave_port" cluster meet "$master_host" "$master_port" 2>/dev/null || true
+                sleep 2
+
                 log_info "Demoting $slave to become slave of $master..."
                 docker run --rm --network host -e REDISCLI_AUTH="$REDIS_PASSWORD" redis:7.4.7-alpine redis-cli \
                     -h "$slave_host" -p "$slave_port" cluster replicate "$master_node_id" 2>/dev/null || true
-                
+
                 sleep 1
                 
                 # Verify the change
