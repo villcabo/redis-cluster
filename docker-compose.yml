@@ -1,41 +1,171 @@
+# Redis con Docker Compose. Un solo archivo, seleccioná el modo con --profile.
+#
+#   standalone           -> 1 Redis con password (dev/local)
+#   cluster              -> los 6 nodos en ESTA máquina (single-host)
+#   node1 | node2 | node3 -> 2 nodos por máquina (multi-host: correr en cada server)
+#   insight              -> RedisInsight UI directa
+#   insight-oauth        -> RedisInsight detrás de oauth2-proxy + Keycloak
+#
+# Ver README.md para la tabla completa de comandos.
+
 networks:
   redis-net:
-    external: true
+    driver: bridge
 
 volumes:
+  redis-standalone-data:
+  redis1-data:
+  redis2-data:
+  redis3-data:
+  redis4-data:
+  redis5-data:
+  redis6-data:
   redis-insight-data:
 
-# RedisInsight with OAuth2 Proxy + Keycloak RBAC
-services:
-  # OAuth2 Proxy - Keycloak Authentication with Role Control
-  redis-oauth2-proxy:
-    image: quay.io/oauth2-proxy/oauth2-proxy:v7.13.0
-    hostname: redis-oauth2-proxy
-    command: --config /oauth2-proxy.cfg
-    networks:
-      - redis-net
-    ports:
-      - "0.0.0.0:4180:4180"
-    volumes:
-      - "./oauth2-config/${OAUTH2_PROXY_CONFIG_FILE:-oauth2-proxy-keycloak.cfg}:/oauth2-proxy.cfg"
-      - "./certs:/etc/oauth2-proxy/certs"
-      - "./templates:/etc/oauth2-proxy/templates"
-    deploy:
-      replicas: 1
-    depends_on:
-      - redis-insight
+# --- plantilla común para nodos de cluster -----------------------------------
+# La config va por command-line. El shell del contenedor expande las env vars
+# ($$ = literal $ para que lo resuelva el contenedor, no compose).
+x-redis-cluster: &redis-cluster
+  image: redis:8.6.3-alpine
+  restart: always
+  networks: [redis-net]
+  command: >
+    sh -c 'exec redis-server
+    --port $$REDIS_PORT
+    --cluster-enabled yes
+    --cluster-config-file nodes.conf
+    --cluster-node-timeout 5000
+    --cluster-announce-ip $$ANNOUNCE_IP
+    --cluster-announce-port $$REDIS_PORT
+    --cluster-announce-bus-port $$BUS_PORT
+    --requirepass $$REDIS_PASSWORD
+    --masterauth $$REDIS_PASSWORD
+    --appendonly yes
+    --protected-mode yes'
+  healthcheck:
+    test: ["CMD-SHELL", "redis-cli -p $$REDIS_PORT -a $$REDIS_PASSWORD ping | grep -q PONG"]
+    interval: 10s
+    timeout: 3s
+    retries: 5
+    start_period: 20s
+  deploy:
+    resources:
+      limits:
+        memory: 2G
+      reservations:
+        memory: 512M
 
-  # RedisInsight - Redis Admin Interface (Protected by OAuth2 Proxy)
+x-cluster-env: &cluster-env
+  ANNOUNCE_IP: ${ANNOUNCE_IP:-127.0.0.1}
+  REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+
+services:
+  # --- standalone ------------------------------------------------------------
+  redis:
+    image: redis:8.6.3-alpine
+    restart: always
+    networks: [redis-net]
+    profiles: [standalone]
+    command: >
+      sh -c 'exec redis-server
+      --requirepass $$REDIS_PASSWORD
+      --appendonly yes
+      --protected-mode yes'
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+    ports:
+      - "${BIND_IP:-0.0.0.0}:6379:6379"
+    volumes:
+      - redis-standalone-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # --- cluster: masters ------------------------------------------------------
+  redis1:
+    <<: *redis-cluster
+    profiles: [cluster, node1]
+    environment: {<<: *cluster-env, REDIS_PORT: 7001, BUS_PORT: 17001}
+    ports:
+      - "${BIND_IP:-0.0.0.0}:7001:7001"
+      - "${BIND_IP:-0.0.0.0}:17001:17001"
+    volumes: [redis1-data:/data]
+
+  redis2:
+    <<: *redis-cluster
+    profiles: [cluster, node2]
+    environment: {<<: *cluster-env, REDIS_PORT: 7002, BUS_PORT: 17002}
+    ports:
+      - "${BIND_IP:-0.0.0.0}:7002:7002"
+      - "${BIND_IP:-0.0.0.0}:17002:17002"
+    volumes: [redis2-data:/data]
+
+  redis3:
+    <<: *redis-cluster
+    profiles: [cluster, node3]
+    environment: {<<: *cluster-env, REDIS_PORT: 7003, BUS_PORT: 17003}
+    ports:
+      - "${BIND_IP:-0.0.0.0}:7003:7003"
+      - "${BIND_IP:-0.0.0.0}:17003:17003"
+    volumes: [redis3-data:/data]
+
+  # --- cluster: replicas -----------------------------------------------------
+  redis4:
+    <<: *redis-cluster
+    profiles: [cluster, node1]
+    environment: {<<: *cluster-env, REDIS_PORT: 7004, BUS_PORT: 17004}
+    ports:
+      - "${BIND_IP:-0.0.0.0}:7004:7004"
+      - "${BIND_IP:-0.0.0.0}:17004:17004"
+    volumes: [redis4-data:/data]
+
+  redis5:
+    <<: *redis-cluster
+    profiles: [cluster, node2]
+    environment: {<<: *cluster-env, REDIS_PORT: 7005, BUS_PORT: 17005}
+    ports:
+      - "${BIND_IP:-0.0.0.0}:7005:7005"
+      - "${BIND_IP:-0.0.0.0}:17005:17005"
+    volumes: [redis5-data:/data]
+
+  redis6:
+    <<: *redis-cluster
+    profiles: [cluster, node3]
+    environment: {<<: *cluster-env, REDIS_PORT: 7006, BUS_PORT: 17006}
+    ports:
+      - "${BIND_IP:-0.0.0.0}:7006:7006"
+      - "${BIND_IP:-0.0.0.0}:17006:17006"
+    volumes: [redis6-data:/data]
+
+  # --- RedisInsight UI -------------------------------------------------------
+  # En modo insight-oauth, poné INSIGHT_BIND=127.0.0.1 para no exponerla directo.
   redis-insight:
-    image: redis/redisinsight:2.70
-    hostname: redis-insight
-    networks:
-      - redis-net
+    image: redis/redisinsight:3.4.2
+    restart: always
+    networks: [redis-net]
+    profiles: [insight, insight-oauth]
     environment:
       RI_LOG_LEVEL: info
-      # Disable Redis Insight authentication since OAuth2 Proxy handles it
       RI_APP_TYPE: docker
+    ports:
+      - "${INSIGHT_BIND:-0.0.0.0}:5540:5540"
     volumes:
-      - "redis-insight-data:/data"
-    deploy:
-      replicas: 1
+      - redis-insight-data:/data
+
+  redis-oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.2
+    restart: always
+    networks: [redis-net]
+    profiles: [insight-oauth]
+    command: --config /oauth2-proxy.cfg
+    ports:
+      - "${BIND_IP:-0.0.0.0}:4180:4180"
+    volumes:
+      - "./oauth2/${OAUTH2_PROXY_CONFIG_FILE:-oauth2-proxy-keycloak.cfg}:/oauth2-proxy.cfg:ro"
+      - "./certs:/etc/oauth2-proxy/certs:ro"
+      - "./oauth2/templates:/etc/oauth2-proxy/templates:ro"
+    depends_on:
+      - redis-insight

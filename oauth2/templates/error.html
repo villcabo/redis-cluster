@@ -5,9 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Error | Síntesis</title>
   <style>
-    :root{--s-green:#08916C;--s-blue:#00509F;--bg:#F5F7FA;--card:#fff;--text:#0F172A;--muted:#64748B;--border:rgba(15,23,42,.10);--shadow:0 10px 30px rgba(2,6,23,.12);}
+    /* Marca Síntesis usa "Blanc" (de pago, no embebible). Poppins como fallback web cercano. */
+    @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap");
+    :root{--s-green:#00936c;--s-blue:#0050a0;--s-coral:#f37267;--s-green-light:#7dc354;--bg:#F5F7FA;--card:#fff;--text:#0F172A;--muted:#64748B;--border:rgba(15,23,42,.10);--shadow:0 10px 30px rgba(2,6,23,.12);}
     *{box-sizing:border-box}
-    body{margin:0;font-family:"Space Grotesk","Segoe UI",Arial,Helvetica,sans-serif;color:var(--text);background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+    body{margin:0;font-family:"Blanc","Poppins","Segoe UI",Arial,Helvetica,sans-serif;color:var(--text);background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
     .card{width:100%;max-width:720px;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);padding:22px}
     .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
     .top img{height:28px}
@@ -16,8 +18,8 @@
     .status{font-size:64px;font-weight:700;letter-spacing:-1px;line-height:1;color:var(--s-blue);margin-top:8px}
     .box{margin-top:14px;border:1px solid var(--border);border-radius:12px;padding:12px;background:rgba(245,247,250,.7);font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;overflow:auto}
     .actions{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap}
-    a.btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 12px;border-radius:10px;text-decoration:none;font-weight:700;border:1px solid rgba(0,80,159,.28);color:var(--s-blue);background:white}
-    a.btn.primary{background:var(--s-green);border-color:rgba(8,145,108,.35);color:white}
+    a.btn{display:inline-flex;align-items:center;justify-content:center;padding:10px 12px;border-radius:10px;text-decoration:none;font-weight:700;border:1px solid rgba(0,80,160,.28);color:var(--s-blue);background:white}
+    a.btn.primary{background:var(--s-green);border-color:rgba(0,147,108,.35);color:white}
     .footer{margin-top:16px;font-size:12px;color:var(--muted);text-align:center}
     .footer a{color:var(--s-blue);text-decoration:none}
     .footer a:hover{text-decoration:underline}
