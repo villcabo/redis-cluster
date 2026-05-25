@@ -10,6 +10,14 @@ Opcionalmente RedisInsight, sola o protegida con OAuth2 + Keycloak.
 > no el orquestador. Por eso no hace falta Swarm: cada server corre su propio
 > `docker compose` y los nodos se hablan por IP:puerto.
 
+## Clonar
+
+```bash
+git clone https://github.com/villcabo/redis-cluster.git   # HTTPS
+git clone git@github.com:villcabo/redis-cluster.git       # SSH
+cd redis-cluster
+```
+
 ## Antes de empezar
 
 ```bash

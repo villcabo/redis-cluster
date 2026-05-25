@@ -10,6 +10,14 @@ Optionally RedisInsight, on its own or protected with OAuth2 + Keycloak.
 > failover), not the orchestrator. That's why Swarm isn't needed: each server runs
 > its own `docker compose` and the nodes talk to each other over IP:port.
 
+## Clone
+
+```bash
+git clone https://github.com/villcabo/redis-cluster.git   # HTTPS
+git clone git@github.com:villcabo/redis-cluster.git       # SSH
+cd redis-cluster
+```
+
 ## Getting started
 
 ```bash
