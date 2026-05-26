@@ -61,4 +61,9 @@ puede ver `fail`/`CLUSTERDOWN` transitorio. Esperar unos segundos y reintentar.
 - Scripts que mutan estado (`cluster-init.sh`) imprimen PREVIEW y exigen `yes`.
 - `.env` y `certs/*.{crt,key}` y `oauth2/*config.cfg` propios están gitignored.
 - `INSIGHT_BIND=127.0.0.1` en modo `insight-oauth` para no exponer la UI directa.
+- Recursos vía `.env`: `NODE_MEM_LIMIT`/`NODE_CPU_LIMIT` (tope del contenedor) y
+  `REDIS_MAXMEMORY`/`REDIS_MAXMEMORY_POLICY` (en el `command`). **Setear `maxmemory`
+  siempre**: sin él, al llenar el tope del contenedor el OOM killer mata el nodo en vez de
+  evict/rechazo graceful. maxmemory ~75% del límite (headroom para fork de BGSAVE/AOF).
+  Default policy `noeviction` (datastore). `restart: unless-stopped` (no `always`).
 - La sección Spring Boot del README (si vuelve) sería para *consumidores*, no parte del deploy.

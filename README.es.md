@@ -22,6 +22,7 @@ cd redis-cluster
 
 ```bash
 cp .env.example .env      # poné REDIS_PASSWORD (y ANNOUNCE_IP si es multi-host)
+# o: ./scripts/env-sync.sh   # crea/actualiza .env desde .env.example sin perder tus valores
 ```
 
 El profile se fija en `.env` con `COMPOSE_PROFILES`, así corrés solo `docker compose up -d`.
@@ -98,3 +99,7 @@ docker compose --profile cluster down -v         # parar y BORRAR datos
 - Imagen fija `redis:8.6.3-alpine`. La config va por command-line en `docker-compose.yml` (sin archivos `.conf`).
 - Datos en volúmenes nombrados (`redisN-data`). Para anclar a disco, cambiá los `volumes:` por bind mounts.
 - Cambiar el password = `docker compose ... up -d --force-recreate` tras editar `.env`.
+- Los límites de recursos y `maxmemory`/policy se setean en `.env` (sección Recursos).
+  Los defaults son para pruebas; en prod, dimensioná `REDIS_MAXMEMORY` a ~75% de
+  `NODE_MEM_LIMIT` y que la suma de maxmemory de todos los nodos quepa en la RAM física
+  (dejá margen para el fork de BGSAVE/AOF).

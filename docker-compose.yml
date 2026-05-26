@@ -8,6 +8,8 @@
 #
 # Ver README.md para la tabla completa de comandos.
 
+name: redis-cluster
+
 networks:
   redis-net:
     driver: bridge
@@ -27,8 +29,6 @@ volumes:
 # ($$ = literal $ para que lo resuelva el contenedor, no compose).
 x-redis-cluster: &redis-cluster
   image: redis:8.6.3-alpine
-  restart: always
-  networks: [redis-net]
   command: >
     sh -c 'exec redis-server
     --port $$REDIS_PORT
@@ -40,43 +40,57 @@ x-redis-cluster: &redis-cluster
     --cluster-announce-bus-port $$BUS_PORT
     --requirepass $$REDIS_PASSWORD
     --masterauth $$REDIS_PASSWORD
+    --maxmemory $$REDIS_MAXMEMORY
+    --maxmemory-policy $$REDIS_MAXMEMORY_POLICY
     --appendonly yes
     --protected-mode yes'
+  restart: unless-stopped
+  networks: [redis-net]
+  deploy:
+    resources:
+      limits:
+        memory: ${NODE_MEM_LIMIT:-512m}
+        cpus: "${NODE_CPU_LIMIT:-1}"
   healthcheck:
     test: ["CMD-SHELL", "redis-cli -p $$REDIS_PORT -a $$REDIS_PASSWORD ping | grep -q PONG"]
     interval: 10s
     timeout: 3s
     retries: 5
     start_period: 20s
-  deploy:
-    resources:
-      limits:
-        memory: 2G
-      reservations:
-        memory: 512M
 
 x-cluster-env: &cluster-env
   ANNOUNCE_IP: ${ANNOUNCE_IP:-127.0.0.1}
   REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+  REDIS_MAXMEMORY: ${REDIS_MAXMEMORY:-384mb}
+  REDIS_MAXMEMORY_POLICY: ${REDIS_MAXMEMORY_POLICY:-noeviction}
 
 services:
   # --- standalone ------------------------------------------------------------
   redis:
     image: redis:8.6.3-alpine
-    restart: always
-    networks: [redis-net]
     profiles: [standalone]
     command: >
       sh -c 'exec redis-server
       --requirepass $$REDIS_PASSWORD
+      --maxmemory $$REDIS_MAXMEMORY
+      --maxmemory-policy $$REDIS_MAXMEMORY_POLICY
       --appendonly yes
       --protected-mode yes'
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+    restart: unless-stopped
+    networks: [redis-net]
     ports:
       - "${BIND_IP:-0.0.0.0}:6379:6379"
     volumes:
       - redis-standalone-data:/data
+    deploy:
+      resources:
+        limits:
+          memory: ${NODE_MEM_LIMIT:-512m}
+          cpus: "${NODE_CPU_LIMIT:-1}"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+      REDIS_MAXMEMORY: ${REDIS_MAXMEMORY:-384mb}
+      REDIS_MAXMEMORY_POLICY: ${REDIS_MAXMEMORY_POLICY:-noeviction}
     healthcheck:
       test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD ping | grep -q PONG"]
       interval: 10s
@@ -88,79 +102,79 @@ services:
   redis1:
     <<: *redis-cluster
     profiles: [cluster, node1]
-    environment: {<<: *cluster-env, REDIS_PORT: 7001, BUS_PORT: 17001}
     ports:
       - "${BIND_IP:-0.0.0.0}:7001:7001"
       - "${BIND_IP:-0.0.0.0}:17001:17001"
     volumes: [redis1-data:/data]
+    environment: {<<: *cluster-env, REDIS_PORT: 7001, BUS_PORT: 17001}
 
   redis2:
     <<: *redis-cluster
     profiles: [cluster, node2]
-    environment: {<<: *cluster-env, REDIS_PORT: 7002, BUS_PORT: 17002}
     ports:
       - "${BIND_IP:-0.0.0.0}:7002:7002"
       - "${BIND_IP:-0.0.0.0}:17002:17002"
     volumes: [redis2-data:/data]
+    environment: {<<: *cluster-env, REDIS_PORT: 7002, BUS_PORT: 17002}
 
   redis3:
     <<: *redis-cluster
     profiles: [cluster, node3]
-    environment: {<<: *cluster-env, REDIS_PORT: 7003, BUS_PORT: 17003}
     ports:
       - "${BIND_IP:-0.0.0.0}:7003:7003"
       - "${BIND_IP:-0.0.0.0}:17003:17003"
     volumes: [redis3-data:/data]
+    environment: {<<: *cluster-env, REDIS_PORT: 7003, BUS_PORT: 17003}
 
   # --- cluster: replicas -----------------------------------------------------
   redis4:
     <<: *redis-cluster
     profiles: [cluster, node1]
-    environment: {<<: *cluster-env, REDIS_PORT: 7004, BUS_PORT: 17004}
     ports:
       - "${BIND_IP:-0.0.0.0}:7004:7004"
       - "${BIND_IP:-0.0.0.0}:17004:17004"
     volumes: [redis4-data:/data]
+    environment: {<<: *cluster-env, REDIS_PORT: 7004, BUS_PORT: 17004}
 
   redis5:
     <<: *redis-cluster
     profiles: [cluster, node2]
-    environment: {<<: *cluster-env, REDIS_PORT: 7005, BUS_PORT: 17005}
     ports:
       - "${BIND_IP:-0.0.0.0}:7005:7005"
       - "${BIND_IP:-0.0.0.0}:17005:17005"
     volumes: [redis5-data:/data]
+    environment: {<<: *cluster-env, REDIS_PORT: 7005, BUS_PORT: 17005}
 
   redis6:
     <<: *redis-cluster
     profiles: [cluster, node3]
-    environment: {<<: *cluster-env, REDIS_PORT: 7006, BUS_PORT: 17006}
     ports:
       - "${BIND_IP:-0.0.0.0}:7006:7006"
       - "${BIND_IP:-0.0.0.0}:17006:17006"
     volumes: [redis6-data:/data]
+    environment: {<<: *cluster-env, REDIS_PORT: 7006, BUS_PORT: 17006}
 
   # --- RedisInsight UI -------------------------------------------------------
   # En modo insight-oauth, poné INSIGHT_BIND=127.0.0.1 para no exponerla directo.
   redis-insight:
     image: redis/redisinsight:3.4.2
-    restart: always
-    networks: [redis-net]
     profiles: [insight, insight-oauth]
-    environment:
-      RI_LOG_LEVEL: info
-      RI_APP_TYPE: docker
+    restart: unless-stopped
+    networks: [redis-net]
     ports:
       - "${INSIGHT_BIND:-0.0.0.0}:5540:5540"
     volumes:
       - redis-insight-data:/data
+    environment:
+      RI_LOG_LEVEL: info
+      RI_APP_TYPE: docker
 
   redis-oauth2-proxy:
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.2
-    restart: always
-    networks: [redis-net]
     profiles: [insight-oauth]
     command: --config /oauth2-proxy.cfg
+    restart: unless-stopped
+    networks: [redis-net]
     ports:
       - "${BIND_IP:-0.0.0.0}:4180:4180"
     volumes:
