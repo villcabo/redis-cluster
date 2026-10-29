@@ -177,6 +177,10 @@ services:
     networks: [redis-net]
     ports:
       - "${BIND_IP:-0.0.0.0}:4180:4180"
+    # The server DNS has no sintesis.internal zone: reach Keycloak through the
+    # edge Traefik on this same host, wherever DHCP puts its address.
+    extra_hosts:
+      - "openid-preprod.sintesis.internal:host-gateway"
     volumes:
       - "./oauth2/${OAUTH2_PROXY_CONFIG_FILE:-oauth2-proxy-keycloak.cfg}:/oauth2-proxy.cfg:ro"
       - "./certs:/etc/oauth2-proxy/certs:ro"
