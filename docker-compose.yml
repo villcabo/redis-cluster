@@ -28,7 +28,7 @@ volumes:
 # La config va por command-line. El shell del contenedor expande las env vars
 # ($$ = literal $ para que lo resuelva el contenedor, no compose).
 x-redis-cluster: &redis-cluster
-  image: redis:8.6.3-alpine
+  image: redis:8.10.3-alpine
   command: >
     sh -c 'exec redis-server
     --port $$REDIS_PORT
@@ -67,7 +67,7 @@ x-cluster-env: &cluster-env
 services:
   # --- standalone ------------------------------------------------------------
   redis:
-    image: redis:8.6.3-alpine
+    image: redis:8.10.3-alpine
     profiles: [standalone]
     command: >
       sh -c 'exec redis-server
@@ -157,7 +157,7 @@ services:
   # --- RedisInsight UI -------------------------------------------------------
   # En modo insight-oauth, poné INSIGHT_BIND=127.0.0.1 para no exponerla directo.
   redis-insight:
-    image: redis/redisinsight:3.4.2
+    image: redis/redisinsight:3.8.0
     profiles: [insight, insight-oauth]
     restart: unless-stopped
     networks: [redis-net]
@@ -170,7 +170,7 @@ services:
       RI_APP_TYPE: docker
 
   redis-oauth2-proxy:
-    image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.2
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.5
     profiles: [insight-oauth]
     command: --config /oauth2-proxy.cfg
     restart: unless-stopped
