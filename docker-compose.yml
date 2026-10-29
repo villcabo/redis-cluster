@@ -165,6 +165,10 @@ services:
       - "${INSIGHT_BIND:-0.0.0.0}:5540:5540"
     volumes:
       - redis-insight-data:/data
+    deploy:
+      resources:
+        limits:
+          memory: ${INSIGHT_MEM_LIMIT:-256m}
     environment:
       RI_LOG_LEVEL: info
       RI_APP_TYPE: docker
@@ -187,3 +191,7 @@ services:
       - "./oauth2/templates:/etc/oauth2-proxy/templates:ro"
     depends_on:
       - redis-insight
+    deploy:
+      resources:
+        limits:
+          memory: ${OAUTH2_PROXY_MEM_LIMIT:-64m}
